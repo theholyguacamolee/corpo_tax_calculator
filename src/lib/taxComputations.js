@@ -279,6 +279,109 @@ export function computeSaleStocksNonListed(data) {
   }
 }
 
+// ========== SALE OF SECURITIES ==========
+export function computeSaleSecurities(data) {
+  const {
+    securityQuantity = 1,
+    securityUnitValue = 0,
+    securityAccruedInterest = 0,
+    acquisitionCost = 0,
+    securityType = 'equity',
+    description = '',
+  } = data;
+
+  const qty = parseFloat(securityQuantity) || 0;
+  const unitPrice = parseFloat(securityUnitValue) || 0;
+  const accruedInterest = parseFloat(securityAccruedInterest) || 0;
+  
+  const totalSellingPrice = (qty * unitPrice) + accruedInterest;
+  const totalAcquisitionCost = parseFloat(acquisitionCost) || 0;
+  
+  const netGain = totalSellingPrice - totalAcquisitionCost;
+  const cgt = Math.max(0, netGain) * 0.15;
+  const dst = totalSellingPrice * 0.0075;
+  const totalTax = cgt + dst;
+
+  const secTypeMap = {
+    equity: 'Equity Security',
+    debt: 'Debt Security (Bond)',
+    derivative: 'Derivative Security'
+  };
+  const secTypeLabel = secTypeMap[securityType] || 'Security';
+
+  return {
+    totalSellingPrice,
+    totalAcquisitionCost,
+    netGain,
+    cgt,
+    dst,
+    totalTax,
+    breakdown: [
+      { label: 'Security Name', value: description || 'N/A', note: 'Label' },
+      { label: 'Security Category', value: secTypeLabel, note: 'Type' },
+      { label: 'Quantity / Units', value: qty },
+      { label: 'Selling Price per Unit', value: unitPrice },
+      ...(accruedInterest > 0 ? [{ label: 'Accrued Interest', value: accruedInterest }] : []),
+      { label: 'Total Transaction / Selling Price', value: totalSellingPrice },
+      { label: 'Total Acquisition Cost', value: totalAcquisitionCost },
+      { label: 'Net Capital Gain / (Loss)', value: netGain },
+      { label: 'Capital Gains Tax (CGT) 15%', value: cgt },
+      { label: 'Documentary Stamp Tax (DST) 0.75%', value: dst, note: '₱1.50 per ₱200 of value' },
+    ],
+  };
+}
+
+// ========== DONATION OF SECURITIES ==========
+export function computeDonationSecurities(data) {
+  const {
+    securityQuantity = 1,
+    securityUnitValue = 0,
+    securityAccruedInterest = 0,
+    securityType = 'equity',
+    numberOfHeirs = 1,
+    description = '',
+  } = data;
+
+  const qty = parseFloat(securityQuantity) || 0;
+  const unitPrice = parseFloat(securityUnitValue) || 0;
+  const accruedInterest = parseFloat(securityAccruedInterest) || 0;
+
+  const totalFMV = (qty * unitPrice) + accruedInterest;
+  const exemption = 250000 * numberOfHeirs;
+  const netGift = Math.max(0, totalFMV - exemption);
+  const donorsTax = netGift * 0.06;
+  const dst = totalFMV * 0.0075;
+  const totalTax = donorsTax + dst;
+
+  const secTypeMap = {
+    equity: 'Equity Security',
+    debt: 'Debt Security (Bond)',
+    derivative: 'Derivative Security'
+  };
+  const secTypeLabel = secTypeMap[securityType] || 'Security';
+
+  return {
+    totalFMV,
+    exemption,
+    netGift,
+    donorsTax,
+    dst,
+    totalTax,
+    breakdown: [
+      { label: 'Security Name', value: description || 'N/A', note: 'Label' },
+      { label: 'Security Category', value: secTypeLabel, note: 'Type' },
+      { label: 'Quantity / Units', value: qty },
+      { label: 'Fair Market Value per Unit', value: unitPrice },
+      ...(accruedInterest > 0 ? [{ label: 'Accrued Interest', value: accruedInterest }] : []),
+      { label: 'Total Fair Market Value', value: totalFMV },
+      { label: `Less: Annual Exemption (₱250k × ${numberOfHeirs})`, value: exemption },
+      { label: 'Net Taxable Gift', value: netGift },
+      { label: "Donor's Tax 6%", value: donorsTax },
+      { label: 'Documentary Stamp Tax (DST) 0.75%', value: dst, note: '₱1.50 per ₱200' },
+    ],
+  };
+}
+
 
 // ========== ESTATE TAX ==========
 export function computeEstateTax(data) {
@@ -345,6 +448,19 @@ export function computeEstateTax(data) {
       propValue = prop.vehicleValue || 0;
       propLabel = prop.brand ? `Vehicle — ${prop.brand}` : 'Vehicle';
       if (prop.plateNumber) propLabel += ` (${prop.plateNumber})`;
+    } else if (prop.propertyType === 'securities') {
+      const qty = parseFloat(prop.securityQuantity) || 0;
+      const val = parseFloat(prop.securityUnitValue) || 0;
+      const interest = parseFloat(prop.securityAccruedInterest) || 0;
+      propValue = (qty * val) + interest;
+      
+      const secTypeMap = {
+        equity: 'Equity Security',
+        debt: 'Debt Security (Bond)',
+        derivative: 'Derivative Security'
+      };
+      const secTypeLabel = secTypeMap[prop.securityType] || 'Security';
+      propLabel = prop.description ? `Securities (${secTypeLabel}) — ${prop.description}` : `Securities (${secTypeLabel})`;
     } else {
       propValue = prop.value || 0;
     }

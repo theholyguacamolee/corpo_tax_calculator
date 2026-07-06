@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Calculator, FileDown, Home, Car, Building, Building2 } from 'lucide-react';
+import { Calculator, FileDown, Home, Car, Building, Building2, Coins } from 'lucide-react';
 import {
   computeSaleRealProperty,
   computeDonationRealProperty,
   computeSaleStocksListed,
   computeSaleStocksNonListed,
+  computeSaleSecurities,
+  computeDonationSecurities,
 } from '@/lib/taxComputations';
 import { generateTaxPDF } from '@/lib/pdfGenerator';
 import PartyInfoForm from './PartyInfoForm';
 import LandForm from './LandForm';
 import StocksForm from './StocksForm';
 import VehicleForm from './VehicleForm';
+import SecuritiesForm from './SecuritiesForm';
 import TaxResultsDisplay from './TaxResultsDisplay';
 import FlowingTabs from './FlowingTabs';
 import AnimatedSection, { StaggerChild } from './AnimatedSection';
@@ -25,8 +28,9 @@ const realPropertyTypes = [
 ];
 
 const personalPropertyTypes = [
-  { id: 'stocks',   label: 'Stocks',   icon: Calculator },
-  { id: 'vehicles', label: 'Vehicles', icon: Car },
+  { id: 'stocks',     label: 'Stocks',     icon: Calculator },
+  { id: 'vehicles',   label: 'Vehicles',   icon: Car },
+  { id: 'securities', label: 'Securities', icon: Coins },
 ];
 
 const propertyCategories = [
@@ -79,6 +83,10 @@ export default function SaleDonationTab({ mode }) {
         res = mode === 'sale'
           ? computeSaleRealProperty({ ...compData, sellingPrice: propertyData.vehicleValue || 0 })
           : computeDonationRealProperty({ ...compData, fairMarketValue: propertyData.vehicleValue || 0 });
+      } else if (propertyType === 'securities') {
+        res = mode === 'sale'
+          ? computeSaleSecurities(compData)
+          : computeDonationSecurities(compData);
       }
     }
     setResults(res);
@@ -223,6 +231,16 @@ export default function SaleDonationTab({ mode }) {
           transition={{ duration: 0.2 }}
         >
           <VehicleForm data={propertyData} onChange={setPropertyData} />
+        </motion.div>
+      )}
+      {propertyCategory === 'personal' && propertyType === 'securities' && (
+        <motion.div
+          key={`${mode}-personal-securities`}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <SecuritiesForm data={propertyData} onChange={setPropertyData} mode={mode} />
         </motion.div>
       )}
 
