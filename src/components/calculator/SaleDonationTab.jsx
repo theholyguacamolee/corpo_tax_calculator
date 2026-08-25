@@ -7,6 +7,8 @@ import {
   computeDonationRealProperty,
   computeSaleStocksListed,
   computeSaleStocksNonListed,
+  computeSaleVehicles,
+  computeDonationVehicles,
   computeSaleSecurities,
   computeDonationSecurities,
 } from '@/lib/taxComputations';
@@ -85,8 +87,8 @@ export default function SaleDonationTab({ mode }) {
           : computeSaleStocksNonListed(compData);
       } else if (propertyType === 'vehicles') {
         res = mode === 'sale'
-          ? computeSaleRealProperty({ ...compData, sellingPrice: propertyData.vehicleValue || 0 })
-          : computeDonationRealProperty({ ...compData, fairMarketValue: propertyData.vehicleValue || 0 });
+          ? computeSaleVehicles(compData)
+          : computeDonationVehicles(compData);
       } else if (propertyType === 'securities') {
         res = mode === 'sale'
           ? computeSaleSecurities(compData)
@@ -140,8 +142,8 @@ export default function SaleDonationTab({ mode }) {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             {mode === 'sale'
-              ? 'Calculate capital gains tax on property sales'
-              : "Calculate donor's tax on property donations"}
+              ? 'Calculate capital gains tax, CWT, and fees on property sales'
+              : "Calculate donor's tax and fees on property donations"}
           </p>
         </div>
       </StaggerChild>
@@ -256,7 +258,7 @@ export default function SaleDonationTab({ mode }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <VehicleForm data={propertyData} onChange={setPropertyData} />
+          <VehicleForm data={propertyData} onChange={setPropertyData} mode={mode} />
         </motion.div>
       )}
       {propertyCategory === 'personal' && propertyType === 'securities' && (

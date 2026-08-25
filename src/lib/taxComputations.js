@@ -1,43 +1,56 @@
 // Philippine Tax Computation Engine
 
 // ========== AUTO CWT RATE ==========
-export function getAutoCWTRate(taxBase) {
-  if (!taxBase || taxBase <= 0) return { rate: 0, label: '0%', desc: 'No value' };
-  if (taxBase <= 500000) return { rate: 0.015, label: '1.5%', desc: '≤ ₱500,000' };
-  if (taxBase <= 2000000) return { rate: 0.03, label: '3.0%', desc: '₱500,001 – ₱2,000,000' };
+export function getAutoCWTRate(taxBase, cwtType = 'auto') {
+  const base = parseFloat(taxBase) || 0;
+  if (cwtType === 'habitual_6') {
+    return { rate: 0.06, label: '6.0%', desc: 'Habitual Real Estate Developer / Business' };
+  }
+  if (cwtType === 'socialized_0') {
+    return { rate: 0.0, label: '0.0%', desc: 'Socialized Housing Project (HUDCC/HLURB Certified)' };
+  }
+  if (base <= 0) return { rate: 0, label: '0%', desc: 'No value' };
+  if (base <= 500000) return { rate: 0.015, label: '1.5%', desc: '≤ ₱500,000' };
+  if (base <= 2000000) return { rate: 0.03, label: '3.0%', desc: '₱500,001 – ₱2,000,000' };
   return { rate: 0.05, label: '5.0%', desc: '> ₱2,000,000' };
 }
 
 // ========== SALE OF REAL PROPERTY ==========
 export function computeSaleRealProperty(data) {
-  const {
-    sellingPrice = 0,
-    fairMarketValue = 0,
-    area = 0,
-    zonalValue = 0,
-    isTradeOrBusiness = false,
-    isVATRegistered = false,
-    hasImprovement = false,
-    improvementAmount = 0,
-  } = data;
+  const sellingPrice = parseFloat(data?.sellingPrice) || 0;
+  const fairMarketValue = parseFloat(data?.fairMarketValue) || 0;
+  const area = parseFloat(data?.area) || 0;
+  const zonalValue = parseFloat(data?.zonalValue) || 0;
+  const isTradeOrBusiness = Boolean(data?.isTradeOrBusiness);
+  const isVATRegistered = Boolean(data?.isVATRegistered);
+  const hasImprovement = Boolean(data?.hasImprovement);
+  const improvementAmount = hasImprovement ? (parseFloat(data?.improvementAmount) || 0) : 0;
+  const locationType = data?.locationType || 'city'; // 'city' (0.75%) or 'province' (0.50%)
+  const cwtType = data?.cwtType || 'auto'; // 'auto', 'habitual_6', 'socialized_0'
 
   const areaTimesZonal = area * zonalValue;
-  const taxBase = Math.max(sellingPrice, fairMarketValue, areaTimesZonal) + (hasImprovement ? improvementAmount : 0);
+  const baseHigher = Math.max(sellingPrice, fairMarketValue, areaTimesZonal);
+  const taxBase = baseHigher + improvementAmount;
+
+  const transferTaxRate = locationType === 'province' ? 0.005 : 0.0075;
+  const transferTaxLabel = locationType === 'province' ? 'Transfer Tax (Province) 0.50%' : 'Transfer Tax (City/Municipality) 0.75%';
+  const transferTax = taxBase * transferTaxRate;
+  const dst = taxBase * 0.015;
+  const registrationFee = taxBase * 0.0025; // 0.25% Registration Fee (Page 30)
 
   if (isTradeOrBusiness) {
-    // Auto CWT rate based on taxable base
-    const cwtInfo = getAutoCWTRate(taxBase);
+    const cwtInfo = getAutoCWTRate(taxBase, cwtType);
     const cwt = taxBase * cwtInfo.rate;
-    // VAT only if VAT-registered (gross receipts >= P3M)
     const vat = isVATRegistered ? sellingPrice * 0.12 : 0;
-    const dst = taxBase * 0.015;
-    const transferTax = taxBase * 0.0075;
+    const totalTax = cwt + vat + dst + transferTax + registrationFee;
 
     return {
       taxBase,
       sellingPrice,
       fairMarketValue,
       areaTimesZonal,
+      hasImprovement,
+      improvementAmount,
       isTradeOrBusiness: true,
       isVATRegistered,
       cwtRate: cwtInfo.rate,
@@ -47,78 +60,104 @@ export function computeSaleRealProperty(data) {
       vat,
       dst,
       transferTax,
-      totalTax: cwt + vat + dst + transferTax,
+      registrationFee,
+      totalTax,
       breakdown: [
-        { label: 'Tax Base (Highest Value)', value: taxBase },
+        { label: 'Tax Base (Highest of SP, FMV, Zonal + Improvement)', value: taxBase },
+        ...(hasImprovement ? [{ label: 'Improvement Added to Tax Base', value: improvementAmount, note: 'Added' }] : []),
         { label: `Creditable Withholding Tax (CWT) ${cwtInfo.label} — ${cwtInfo.desc}`, value: cwt },
-        ...(isVATRegistered ? [{ label: 'Value Added Tax (VAT) 12% (VAT Registered)', value: vat }] : []),
+        ...(isVATRegistered ? [{ label: 'Value Added Tax (VAT) 12%', value: vat }] : []),
         { label: 'Documentary Stamp Tax (DST) 1.5%', value: dst },
-        { label: 'Transfer Tax 0.75%', value: transferTax },
+        { label: transferTaxLabel, value: transferTax },
+        { label: 'Registration Fee 0.25%', value: registrationFee },
       ],
     };
   }
 
   const cgt = taxBase * 0.06;
-  const dst = taxBase * 0.015;
-  const transferTax = taxBase * 0.0075;
+  const totalTax = cgt + dst + transferTax + registrationFee;
 
   return {
     taxBase,
     sellingPrice,
     fairMarketValue,
     areaTimesZonal,
+    hasImprovement,
+    improvementAmount,
     isTradeOrBusiness: false,
     cgt,
     dst,
     transferTax,
-    totalTax: cgt + dst + transferTax,
+    registrationFee,
+    totalTax,
     breakdown: [
-      { label: 'Tax Base (Highest Value)', value: taxBase },
+      { label: 'Tax Base (Highest of SP, FMV, Zonal + Improvement)', value: taxBase },
+      ...(hasImprovement ? [{ label: 'Improvement Added to Tax Base', value: improvementAmount, note: 'Added' }] : []),
       { label: 'Capital Gains Tax (CGT) 6%', value: cgt },
       { label: 'Documentary Stamp Tax (DST) 1.5%', value: dst },
-      { label: 'Transfer Tax 0.75%', value: transferTax },
+      { label: transferTaxLabel, value: transferTax },
+      { label: 'Registration Fee 0.25%', value: registrationFee },
     ],
   };
 }
 
 // ========== DONATION OF REAL PROPERTY ==========
 export function computeDonationRealProperty(data) {
-  const { fairMarketValue = 0, area = 0, zonalValue = 0, hasImprovement = false, improvementAmount = 0, numberOfHeirs = 1 } = data;
+  const fairMarketValue = parseFloat(data?.fairMarketValue) || 0;
+  const area = parseFloat(data?.area) || 0;
+  const zonalValue = parseFloat(data?.zonalValue) || 0;
+  const hasImprovement = Boolean(data?.hasImprovement);
+  const improvementAmount = hasImprovement ? (parseFloat(data?.improvementAmount) || 0) : 0;
+  const numberOfHeirs = parseInt(data?.numberOfHeirs, 10) || 1;
+  const locationType = data?.locationType || 'city';
 
   const areaTimesZonal = area * zonalValue;
-  const taxBase = Math.max(fairMarketValue, areaTimesZonal) + (hasImprovement ? improvementAmount : 0);
+  const baseHigher = Math.max(fairMarketValue, areaTimesZonal);
+  const taxBase = baseHigher + improvementAmount;
+
   const exemption = 250000 * numberOfHeirs;
   const netGift = Math.max(taxBase - exemption, 0);
   const donorsTax = netGift * 0.06;
   const dst = taxBase * 0.015;
-  const transferTax = taxBase * 0.0075;
+  const transferTaxRate = locationType === 'province' ? 0.005 : 0.0075;
+  const transferTaxLabel = locationType === 'province' ? 'Transfer Tax (Province) 0.50%' : 'Transfer Tax (City/Municipality) 0.75%';
+  const transferTax = taxBase * transferTaxRate;
+  const registrationFee = taxBase * 0.0025; // 0.25% Registration Fee
 
   return {
     taxBase,
     fairMarketValue,
     areaTimesZonal,
+    hasImprovement,
+    improvementAmount,
     standardDeduction: exemption,
     netGift,
     donorsTax,
     dst,
     transferTax,
-    totalTax: donorsTax + dst + transferTax,
+    registrationFee,
+    totalTax: donorsTax + dst + transferTax + registrationFee,
     breakdown: [
-      { label: 'Tax Base (Highest of FMV or Area × Zonal)', value: taxBase },
+      { label: 'Tax Base (Highest of FMV, Zonal + Improvement)', value: taxBase },
+      ...(hasImprovement ? [{ label: 'Improvement Added to Tax Base', value: improvementAmount, note: 'Added' }] : []),
       { label: `Less: Annual Exemption (₱250k × ${numberOfHeirs})`, value: exemption },
-      { label: 'Net Gift', value: netGift },
+      { label: 'Net Gift Subject to Tax', value: netGift },
       { label: "Donor's Tax 6%", value: donorsTax },
       { label: 'Documentary Stamp Tax (DST) 1.5%', value: dst },
-      { label: 'Transfer Tax 0.75%', value: transferTax },
+      { label: transferTaxLabel, value: transferTax },
+      { label: 'Registration Fee 0.25%', value: registrationFee },
     ],
   };
 }
 
 // ========== SALE OF STOCKS - LISTED ==========
 export function computeSaleStocksListed(data) {
-  const { grossSalesValue = 0, isTradeOrBusiness = false, sellingPrice = 0, acquisitionCost = 0 } = data;
+  const grossSalesValue = parseFloat(data?.grossSalesValue) || 0;
+  const isTradeOrBusiness = Boolean(data?.isTradeOrBusiness);
+  const sellingPrice = parseFloat(data?.sellingPrice) || 0;
+  const acquisitionCost = parseFloat(data?.acquisitionCost) || 0;
 
-  const stt = grossSalesValue * 0.001;
+  const stt = grossSalesValue * 0.001; // 0.1% STT
   const vat = isTradeOrBusiness ? (sellingPrice || grossSalesValue) * 0.12 : 0;
   const netGain = grossSalesValue - acquisitionCost;
 
@@ -279,6 +318,139 @@ export function computeSaleStocksNonListed(data) {
   }
 }
 
+// ========== SALE OF VEHICLES / PERSONAL PROPERTY ==========
+export function computeSaleVehicles(data) {
+  const sellingPrice = parseFloat(data?.sellingPrice) || 0;
+  const acquisitionCost = parseFloat(data?.acquisitionCost) || 0;
+  const bookValue = parseFloat(data?.vehicleValue || data?.bookValue) || 0;
+  const numberOfHeirs = parseInt(data?.numberOfHeirs, 10) || 1;
+  const isTradeOrBusiness = Boolean(data?.isTradeOrBusiness);
+  const isVATRegistered = Boolean(data?.isVATRegistered);
+
+  const netGain = Math.max(0, sellingPrice - acquisitionCost);
+  const cgt = netGain * 0.15;
+  const exemption = 250000 * numberOfHeirs;
+
+  // Base for DST and Registration Fee
+  const taxBase = Math.max(sellingPrice, bookValue);
+  const dst = taxBase * 0.015; // 1.5% DST (Page 30)
+  const registrationFee = taxBase * 0.0025; // 0.25% Registration Fee (Page 30)
+  const vat = isTradeOrBusiness && isVATRegistered ? sellingPrice * 0.12 : 0;
+
+  if (sellingPrice >= bookValue) {
+    // Selling Price >= Book Value = CGT NO DONATION
+    const totalTax = cgt + dst + registrationFee + vat;
+    return {
+      taxBase,
+      sellingPrice,
+      acquisitionCost,
+      bookValue,
+      netGain,
+      cgt,
+      dst,
+      registrationFee,
+      vat,
+      totalTax,
+      breakdown: [
+        { label: 'Vehicle / Property Identifier', value: data?.plateNumber ? `${data?.brand || 'Vehicle'} (${data.plateNumber})` : (data?.brand || 'Personal Property'), note: 'Asset' },
+        { label: 'Selling Price (Total)', value: sellingPrice },
+        { label: 'Acquisition Cost', value: acquisitionCost },
+        { label: 'Book Value / Fair Market Value', value: bookValue },
+        { label: 'Net Capital Gain (SP - AC)', value: netGain },
+        { label: 'Capital Gains Tax (CGT) 15%', value: cgt },
+        ...(vat > 0 ? [{ label: 'Value Added Tax (VAT) 12%', value: vat }] : []),
+        { label: 'Documentary Stamp Tax (DST) 1.5%', value: dst },
+        { label: 'Registration Fee 0.25%', value: registrationFee },
+      ],
+    };
+  } else if (sellingPrice === 0) {
+    // Pure Donation
+    const taxableNetGift = Math.max(0, bookValue - exemption);
+    const donorsTax = taxableNetGift * 0.06;
+    const totalTax = donorsTax + dst + registrationFee;
+    return {
+      taxBase: bookValue,
+      bookValue,
+      donorsTax,
+      dst,
+      registrationFee,
+      totalTax,
+      breakdown: [
+        { label: 'Vehicle / Property Identifier', value: data?.plateNumber ? `${data?.brand || 'Vehicle'} (${data.plateNumber})` : (data?.brand || 'Personal Property'), note: 'Asset' },
+        { label: 'Book Value / Valuation Base', value: bookValue },
+        { label: `Less: Annual Exemption (₱250k × ${numberOfHeirs})`, value: exemption },
+        { label: 'Taxable Net Gift', value: taxableNetGift },
+        { label: "Donor's Tax 6%", value: donorsTax },
+        { label: 'Documentary Stamp Tax (DST) 1.5%', value: dst },
+        { label: 'Registration Fee 0.25%', value: registrationFee },
+      ],
+    };
+  } else {
+    // Lower Selling than BV = PARTIAL DONATION (Both CGT & Donor's Tax)
+    const deemedGift = bookValue - sellingPrice;
+    const donorsTax = Math.max(0, deemedGift - exemption) * 0.06;
+    const totalTax = cgt + donorsTax + dst + registrationFee + vat;
+    return {
+      taxBase,
+      sellingPrice,
+      acquisitionCost,
+      bookValue,
+      netGain,
+      cgt,
+      deemedGift,
+      donorsTax,
+      dst,
+      registrationFee,
+      vat,
+      totalTax,
+      breakdown: [
+        { label: 'Vehicle / Property Identifier', value: data?.plateNumber ? `${data?.brand || 'Vehicle'} (${data.plateNumber})` : (data?.brand || 'Personal Property'), note: 'Asset' },
+        { label: 'Selling Price', value: sellingPrice },
+        { label: 'Book Value / Fair Market Value', value: bookValue },
+        { label: 'Acquisition Cost', value: acquisitionCost },
+        { label: 'Net Gain = (Selling Price - Acquisition Cost)', value: netGain },
+        { label: 'Capital Gains Tax (CGT) 15%', value: cgt },
+        { label: 'Deemed Gift = (Book Value - Selling Price)', value: deemedGift },
+        { label: `Donor's Tax = (Deemed Gift - Exemption) × 6%`, value: donorsTax, note: `Exemption applied: ₱${exemption}` },
+        ...(vat > 0 ? [{ label: 'Value Added Tax (VAT) 12%', value: vat }] : []),
+        { label: 'Documentary Stamp Tax (DST) 1.5%', value: dst },
+        { label: 'Registration Fee 0.25%', value: registrationFee },
+      ],
+    };
+  }
+}
+
+// ========== DONATION OF VEHICLES / PERSONAL PROPERTY ==========
+export function computeDonationVehicles(data) {
+  const bookValue = parseFloat(data?.vehicleValue || data?.bookValue || data?.fairMarketValue) || 0;
+  const numberOfHeirs = parseInt(data?.numberOfHeirs, 10) || 1;
+
+  const exemption = 250000 * numberOfHeirs;
+  const taxableNetGift = Math.max(0, bookValue - exemption);
+  const donorsTax = taxableNetGift * 0.06;
+  const dst = bookValue * 0.015; // 1.5% DST
+  const registrationFee = bookValue * 0.0025; // 0.25% Registration Fee
+  const totalTax = donorsTax + dst + registrationFee;
+
+  return {
+    taxBase: bookValue,
+    bookValue,
+    donorsTax,
+    dst,
+    registrationFee,
+    totalTax,
+    breakdown: [
+      { label: 'Vehicle / Property Identifier', value: data?.plateNumber ? `${data?.brand || 'Vehicle'} (${data.plateNumber})` : (data?.brand || 'Personal Property'), note: 'Asset' },
+      { label: 'Total Valuation / Book Value', value: bookValue },
+      { label: `Less: Annual Exemption (₱250k × ${numberOfHeirs})`, value: exemption },
+      { label: 'Taxable Net Gift', value: taxableNetGift },
+      { label: "Donor's Tax 6%", value: donorsTax },
+      { label: 'Documentary Stamp Tax (DST) 1.5%', value: dst },
+      { label: 'Registration Fee 0.25%', value: registrationFee },
+    ],
+  };
+}
+
 // ========== SALE OF SECURITIES ==========
 export function computeSaleSecurities(data) {
   const {
@@ -297,10 +469,11 @@ export function computeSaleSecurities(data) {
   const totalSellingPrice = (qty * unitPrice) + accruedInterest;
   const totalAcquisitionCost = parseFloat(acquisitionCost) || 0;
   
-  const netGain = totalSellingPrice - totalAcquisitionCost;
-  const cgt = Math.max(0, netGain) * 0.15;
+  const netGain = Math.max(0, totalSellingPrice - totalAcquisitionCost);
+  const cgt = netGain * 0.15;
   const dst = totalSellingPrice * 0.0075;
-  const totalTax = cgt + dst;
+  const registrationFee = totalSellingPrice * 0.0025;
+  const totalTax = cgt + dst + registrationFee;
 
   const secTypeMap = {
     equity: 'Equity Security',
@@ -315,6 +488,7 @@ export function computeSaleSecurities(data) {
     netGain,
     cgt,
     dst,
+    registrationFee,
     totalTax,
     breakdown: [
       { label: 'Security Name', value: description || 'N/A', note: 'Label' },
@@ -327,6 +501,7 @@ export function computeSaleSecurities(data) {
       { label: 'Net Capital Gain / (Loss)', value: netGain },
       { label: 'Capital Gains Tax (CGT) 15%', value: cgt },
       { label: 'Documentary Stamp Tax (DST) 0.75%', value: dst, note: '₱1.50 per ₱200 of value' },
+      { label: 'Registration Fee 0.25%', value: registrationFee },
     ],
   };
 }
@@ -351,7 +526,8 @@ export function computeDonationSecurities(data) {
   const netGift = Math.max(0, totalFMV - exemption);
   const donorsTax = netGift * 0.06;
   const dst = totalFMV * 0.0075;
-  const totalTax = donorsTax + dst;
+  const registrationFee = totalFMV * 0.0025;
+  const totalTax = donorsTax + dst + registrationFee;
 
   const secTypeMap = {
     equity: 'Equity Security',
@@ -366,6 +542,7 @@ export function computeDonationSecurities(data) {
     netGift,
     donorsTax,
     dst,
+    registrationFee,
     totalTax,
     breakdown: [
       { label: 'Security Name', value: description || 'N/A', note: 'Label' },
@@ -378,6 +555,7 @@ export function computeDonationSecurities(data) {
       { label: 'Net Taxable Gift', value: netGift },
       { label: "Donor's Tax 6%", value: donorsTax },
       { label: 'Documentary Stamp Tax (DST) 0.75%', value: dst, note: '₱1.50 per ₱200' },
+      { label: 'Registration Fee 0.25%', value: registrationFee },
     ],
   };
 }

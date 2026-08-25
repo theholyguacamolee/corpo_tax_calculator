@@ -76,6 +76,26 @@ export default function EstateDeceasedForm({ data, onChange }) {
               <Label className="text-xs text-muted-foreground">Nationality</Label>
               <Input placeholder="e.g., Filipino" value={data?.nationality || ''} onChange={(e) => update('nationality', e.target.value)} />
             </div>
+            {data?.civilStatus === 'married' && (
+              <div className="md:col-span-2 p-3 bg-muted/40 rounded-lg border space-y-2">
+                <Label className="text-xs font-semibold text-primary">Property Regime (Date/Year of Marriage)</Label>
+                <Select 
+                  value={data?.propertyRegime || 'acp'} 
+                  onValueChange={(v) => update('propertyRegime', v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select property regime" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="acp">On or After Aug 3, 1988 — Absolute Community of Property (ACP)</SelectItem>
+                    <SelectItem value="cpg">Before Aug 3, 1988 — Conjugal Partnership of Gains (CPG)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {data?.propertyRegime === 'cpg'
+                    ? 'CPG: Fruits/profits of property acquired during marriage are shared; exclusive properties remain separate.'
+                    : 'ACP: Automatic partition of shares across community property (50% surviving spouse share).'}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="pt-3 border-t space-y-3">
