@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Gift, Landmark } from 'lucide-react';
+import { Building2, Gift, Landmark, History } from 'lucide-react';
 import FlowingTabs from '@/components/calculator/FlowingTabs';
 import SaleDonationTab from '@/components/calculator/SaleDonationTab';
 import EstateTab from '@/components/calculator/EstateTab';
+import CalculationHistory from '@/components/calculator/CalculationHistory';
 
 const mainTabs = [
   { id: 'sale', label: 'Sale', icon: Building2 },
   { id: 'donation', label: 'Donation', icon: Gift },
   { id: 'estate', label: 'Estate', icon: Landmark },
+  { id: 'history', label: 'History', icon: History },
 ];
 
 export default function Calculator() {
@@ -52,7 +54,7 @@ export default function Calculator() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="max-w-lg mx-auto mb-8"
+          className="max-w-xl mx-auto mb-8"
         >
           <FlowingTabs
             tabs={mainTabs}
@@ -96,6 +98,16 @@ export default function Calculator() {
               transition={{ duration: 0.2 }}
             >
               <EstateTab />
+            </motion.div>
+          )}
+          {activeTab === 'history' && (
+            <motion.div
+              key="history-tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <CalculationHistory />
             </motion.div>
           )}
         </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Calculator, FileDown, Home, Car, Building, Building2, Coins } from 'lucide-react';
+import { Calculator, FileDown, Save, Home, Car, Building, Building2, Coins } from 'lucide-react';
 import {
   computeSaleRealProperty,
   computeDonationRealProperty,
@@ -11,6 +11,8 @@ import {
   computeDonationSecurities,
 } from '@/lib/taxComputations';
 import { generateTaxPDF } from '@/lib/pdfGenerator';
+import { saveCalculation } from '@/lib/calculationsService';
+import { useToast } from '@/components/ui/use-toast';
 import PartyInfoForm from './PartyInfoForm';
 import LandForm from './LandForm';
 import StocksForm from './StocksForm';
@@ -51,6 +53,8 @@ export default function SaleDonationTab({ mode }) {
   const [buyerInfo, setBuyerInfo]               = useState({});
   const [propertyData, setPropertyData]         = useState({});
   const [results, setResults]                   = useState(null);
+  const [isSaving, setIsSaving]                 = useState(false);
+  const { toast } = useToast();
 
   const handleCategoryChange = (cat) => {
     setPropertyCategory(cat);
@@ -100,6 +104,28 @@ export default function SaleDonationTab({ mode }) {
       property_details: propertyData,
       computation_result: results,
     });
+  };
+
+  const handleSaveToHistory = async () => {
+    setIsSaving(true);
+    try {
+      await saveCalculation({
+        computationType: mode,
+        partyInfo: { sellerInfo, buyerInfo },
+        propertyDetails: { propertyCategory, propertyType, ...propertyData },
+        results,
+      });
+      toast({ title: 'Saved', description: 'This calculation was added to your history.' });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: 'Save failed',
+        description: err.message || 'Could not save this calculation to Supabase.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const currentTypes = propertyCategory === 'real' ? realPropertyTypes : personalPropertyTypes;
@@ -256,10 +282,14 @@ export default function SaleDonationTab({ mode }) {
       {results && (
         <AnimatedSection keyProp={`results-${mode}`}>
           <TaxResultsDisplay results={results} />
-          <div className="mt-4">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
             <Button onClick={handleDownload} variant="outline" className="w-full gap-2">
               <FileDown className="w-4 h-4" />
               Download BIR Form PDF
+            </Button>
+            <Button onClick={handleSaveToHistory} disabled={isSaving} variant="outline" className="w-full gap-2">
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving…' : 'Save to History'}
             </Button>
           </div>
         </AnimatedSection>

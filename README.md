@@ -39,6 +39,47 @@ A comprehensive, professional Philippine tax calculator web application designed
 
 ---
 
+## Supabase Setup (Saved Calculation History)
+
+The app is a stateless calculator by default — nothing is persisted unless you
+connect it to Supabase. Auth is intentionally left as-is (a stub that's
+always "logged in" as the firm's internal staff user, see
+`src/lib/AuthContext.jsx`); Supabase here is only used to save/load past
+computations.
+
+1. **Create a Supabase project** at [supabase.com](https://supabase.com) (free tier is enough).
+2. **Run the schema**: open the SQL Editor in your Supabase dashboard and run the contents of
+   [`supabase/schema.sql`](./supabase/schema.sql). This creates a single
+   `tax_calculations` table with permissive RLS policies (see the note at
+   the top of that file — since there's no real login wall, the anon key
+   can read/write every row; fine for an internal tool, revisit if this
+   ever becomes public-facing).
+3. **Copy the env file:**
+   ```bash
+   cp .env.example .env
+   ```
+4. **Fill in your credentials** in `.env` (find these under Project Settings → API):
+   ```
+   VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-public-key
+   ```
+5. **Install the new dependency** (already in `package.json`, just run install again if you haven't):
+   ```bash
+   npm install
+   ```
+6. Run `npm run dev` — you should now see a **History** tab in the app.
+   Compute a tax anywhere in Sale/Donation/Estate and click **Save to
+   History** to write it to Supabase; the History tab lists, expands, and
+   deletes saved rows.
+
+**Files involved:**
+- `supabase/schema.sql` — table + RLS policies (run this in the Supabase SQL Editor).
+- `src/lib/supabaseClient.js` — Supabase client, reads `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
+- `src/lib/calculationsService.js` — `saveCalculation`, `listCalculations`, `getCalculation`, `deleteCalculation`.
+- `src/components/calculator/CalculationHistory.jsx` — the History tab UI.
+
+---
+
 ## System Features & Modules
 
 - **Estate Tax Module:** Computes Philippine Estate Tax based on gross estate (Real properties, Stocks, Vehicles, Securities) minus standard deductions.

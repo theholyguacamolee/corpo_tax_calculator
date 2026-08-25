@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FileDown, Landmark } from 'lucide-react';
+import { FileDown, Save, Landmark } from 'lucide-react';
 import { computeEstateTax } from '@/lib/taxComputations';
 import { generateTaxPDF } from '@/lib/pdfGenerator';
+import { saveCalculation } from '@/lib/calculationsService';
+import { useToast } from '@/components/ui/use-toast';
 import EstateDeceasedForm from './EstateDeceasedForm';
 import EstatePropertyForm from './EstatePropertyForm';
 import TaxResultsDisplay from './TaxResultsDisplay';
@@ -22,6 +24,8 @@ export default function EstateTab() {
     lossesIncurredDuringSettlement: 0,
   });
   const [results, setResults] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   const hasFamilyHome = properties.some(p => p.isFamilyHome);
 
@@ -52,6 +56,28 @@ export default function EstateTab() {
       computation_result: results,
       ordinaryDeductions,
     });
+  };
+
+  const handleSaveToHistory = async () => {
+    setIsSaving(true);
+    try {
+      await saveCalculation({
+        computationType: 'estate',
+        partyInfo: { deceasedInfo },
+        propertyDetails: { properties, isMarried, ordinaryDeductions },
+        results,
+      });
+      toast({ title: 'Saved', description: 'This calculation was added to your history.' });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: 'Save failed',
+        description: err.message || 'Could not save this calculation to Supabase.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -149,9 +175,14 @@ export default function EstateTab() {
       {results && (
         <>
           <TaxResultsDisplay results={results} title="Estate Tax Computation" />
-          <Button onClick={handleDownload} variant="outline" className="w-full">
-            <FileDown className="mr-2 h-4 w-4" /> Download BIR Form 1801
-          </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Button onClick={handleDownload} variant="outline" className="w-full">
+              <FileDown className="mr-2 h-4 w-4" /> Download BIR Form 1801
+            </Button>
+            <Button onClick={handleSaveToHistory} disabled={isSaving} variant="outline" className="w-full">
+              <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving…' : 'Save to History'}
+            </Button>
+          </div>
         </>
       )}
     </div>
