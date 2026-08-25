@@ -20,7 +20,9 @@ export function getDonationTemplate(computationData) {
   const donorsTax  = computation_result?.donorsTax  || 0;
   const dst        = computation_result?.dst        || 0;
   const transferTax= computation_result?.transferTax|| 0;
-  const exemption  = 250000;
+  const registrationFee = computation_result?.registrationFee || 0;
+  const totalTax   = computation_result?.totalTax   || (donorsTax + dst + transferTax + registrationFee);
+  const exemption  = computation_result?.standardDeduction || 250000;
 
   const fmv        = property_details?.fairMarketValue || 0;
   const area       = property_details?.area            || 0;
@@ -492,12 +494,16 @@ export function getDonationTemplate(computationData) {
         <td style="text-align:right; padding:2px 4px;">${f(dst)}</td>
       </tr>
       <tr>
-        <td style="padding:2px 4px;">Transfer Tax – 0.75%</td>
+        <td style="padding:2px 4px;">Transfer Tax</td>
         <td style="text-align:right; padding:2px 4px;">${f(transferTax)}</td>
       </tr>
+      <tr>
+        <td style="padding:2px 4px;">Registration Fee – 0.25%</td>
+        <td style="text-align:right; padding:2px 4px;">${f(registrationFee)}</td>
+      </tr>
       <tr style="font-weight:bold; border-top:1.5px solid #1a365d;">
-        <td style="padding:3px 4px;">TOTAL TAX DUE</td>
-        <td style="text-align:right; padding:3px 4px; color:#1a365d;">${f(donorsTax + dst + transferTax)}</td>
+        <td style="padding:3px 4px;">TOTAL AMOUNT DUE (Tax & Fees)</td>
+        <td style="text-align:right; padding:3px 4px; color:#1a365d;">${f(totalTax)}</td>
       </tr>
     </table>
   </div>

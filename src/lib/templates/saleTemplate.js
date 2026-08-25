@@ -24,6 +24,8 @@ export function getSaleRealPropertyTemplate(computationData) {
   const areaZonal    = area * zonalValue;
   const dst          = computation_result?.dst          || 0;
   const transferTax  = computation_result?.transferTax  || 0;
+  const registrationFee = computation_result?.registrationFee || 0;
+  const totalTax     = computation_result?.totalTax     || (cgt + dst + transferTax + registrationFee);
   const isTradeOrBiz = property_details?.isTradeOrBusiness || false;
 
   // Classification code mapping
@@ -607,20 +609,30 @@ export function getSaleRealPropertyTemplate(computationData) {
     <div style="font-weight:bold; font-size:9pt; margin-bottom:4px;">Tax Summary</div>
     <table style="width:100%; font-size:9pt; border-collapse:collapse;">
       <tr>
-        <td style="padding:2px 4px;">Capital Gains Tax (CGT) – 6%</td>
+        <td style="padding:2px 4px;">${isTradeOrBiz ? `Creditable Withholding Tax (CWT) – ${computation_result?.cwtLabel || ''}` : 'Capital Gains Tax (CGT) – 6%'}</td>
         <td style="text-align:right; padding:2px 4px;">${f(cgt)}</td>
       </tr>
+      ${computation_result?.vat > 0 ? `
+      <tr>
+        <td style="padding:2px 4px;">Value Added Tax (VAT) – 12%</td>
+        <td style="text-align:right; padding:2px 4px;">${f(computation_result.vat)}</td>
+      </tr>
+      ` : ''}
       <tr>
         <td style="padding:2px 4px;">Documentary Stamp Tax (DST) – 1.5%</td>
         <td style="text-align:right; padding:2px 4px;">${f(dst)}</td>
       </tr>
       <tr>
-        <td style="padding:2px 4px;">Transfer Tax – 0.75%</td>
+        <td style="padding:2px 4px;">Transfer Tax</td>
         <td style="text-align:right; padding:2px 4px;">${f(transferTax)}</td>
       </tr>
+      <tr>
+        <td style="padding:2px 4px;">Registration Fee – 0.25%</td>
+        <td style="text-align:right; padding:2px 4px;">${f(registrationFee)}</td>
+      </tr>
       <tr style="font-weight:bold; border-top:1.5px solid #1a365d;">
-        <td style="padding:3px 4px;">TOTAL TAX DUE</td>
-        <td style="text-align:right; padding:3px 4px; color:#1a365d;">${f(cgt + dst + transferTax)}</td>
+        <td style="padding:3px 4px;">TOTAL AMOUNT DUE (Tax & Fees)</td>
+        <td style="text-align:right; padding:3px 4px; color:#1a365d;">${f(totalTax)}</td>
       </tr>
     </table>
   </div>

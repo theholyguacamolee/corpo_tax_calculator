@@ -35,13 +35,16 @@ export default function EstateTab() {
 
   const totalOrdinaryDeductions = Object.values(ordinaryDeductions).reduce((a, b) => a + b, 0);
 
+  const isActuallyMarried = isMarried || deceasedInfo?.civilStatus === 'married';
+
   const handleCompute = () => {
     const heirsList = deceasedInfo.heirs || [''];
 
     const res = computeEstateTax({
       dateOfDeath: deceasedInfo.dateOfDeath,
       properties,
-      isMarried,
+      isMarried: isActuallyMarried,
+      propertyRegime: deceasedInfo.propertyRegime || 'acp',
       ordinaryDeductions: totalOrdinaryDeductions,
       heirs: heirsList,
     });
@@ -64,7 +67,7 @@ export default function EstateTab() {
       await saveCalculation({
         computationType: 'estate',
         partyInfo: { deceasedInfo },
-        propertyDetails: { properties, isMarried, ordinaryDeductions },
+        propertyDetails: { properties, isMarried: isActuallyMarried, ordinaryDeductions },
         results,
       });
       toast({ title: 'Saved', description: 'This calculation was added to your history.' });
@@ -83,7 +86,15 @@ export default function EstateTab() {
   return (
     <div className="space-y-6">
       {/* Deceased Information */}
-      <EstateDeceasedForm data={deceasedInfo} onChange={setDeceasedInfo} />
+      <EstateDeceasedForm
+        data={deceasedInfo}
+        onChange={(info) => {
+          setDeceasedInfo(info);
+          if (info.civilStatus === 'married') {
+            setIsMarried(true);
+          }
+        }}
+      />
 
       {/* Marital Status */}
       <Card className="border-2 border-border/50 shadow-sm">
@@ -91,11 +102,17 @@ export default function EstateTab() {
           <div className="flex items-center gap-2">
             <Checkbox
               id="isMarried"
-              checked={isMarried}
-              onCheckedChange={setIsMarried}
+              checked={isActuallyMarried}
+              onCheckedChange={(v) => {
+                const checked = Boolean(v);
+                setIsMarried(checked);
+                if (!checked && deceasedInfo.civilStatus === 'married') {
+                  setDeceasedInfo({ ...deceasedInfo, civilStatus: 'single' });
+                }
+              }}
             />
             <Label htmlFor="isMarried" className="text-sm cursor-pointer">
-              Deceased was married (conjugal property — only 50% included in estate)
+              Deceased was married (conjugal/community property — 50% surviving spouse share deduction applied)
             </Label>
           </div>
         </CardContent>

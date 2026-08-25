@@ -110,10 +110,10 @@ export default function EstatePropertyForm({ properties, onChange, hasFamilyHome
                       <Checkbox
                         id={`family-home-${index}`}
                         checked={prop.isFamilyHome || false}
-                        onCheckedChange={(v) => updateProperty(index, 'isFamilyHome', v)}
+                        onCheckedChange={(v) => updateProperty(index, 'isFamilyHome', Boolean(v))}
                         disabled={hasFamilyHome && !prop.isFamilyHome}
                       />
-                      <Label htmlFor={`family-home-${index}`} className="text-xs cursor-pointer">🏠 Mark as Family Home (auto-applies ₱5M standard deduction)</Label>
+                      <Label htmlFor={`family-home-${index}`} className="text-xs cursor-pointer">🏠 Mark as Family Home (deduction up to ₱10M for TRAIN Law / ₱1M pre-TRAIN)</Label>
                     </div>
 
                     <EstateLandFields prop={prop} index={index} updateProperty={updateProperty} showImprovement={true} showCWT={true} />
@@ -131,10 +131,10 @@ export default function EstatePropertyForm({ properties, onChange, hasFamilyHome
                       <Checkbox
                         id={`family-home-${index}`}
                         checked={prop.isFamilyHome || false}
-                        onCheckedChange={(v) => updateProperty(index, 'isFamilyHome', v)}
+                        onCheckedChange={(v) => updateProperty(index, 'isFamilyHome', Boolean(v))}
                         disabled={hasFamilyHome && !prop.isFamilyHome}
                       />
-                      <Label htmlFor={`family-home-${index}`} className="text-xs cursor-pointer">🏠 Mark as Family Home (auto-applies ₱5M standard deduction)</Label>
+                      <Label htmlFor={`family-home-${index}`} className="text-xs cursor-pointer">🏠 Mark as Family Home (deduction up to ₱10M for TRAIN Law / ₱1M pre-TRAIN)</Label>
                     </div>
 
                     <EstateLandFields prop={prop} index={index} updateProperty={updateProperty} showImprovement={false} showCWT={true} />
@@ -170,9 +170,13 @@ export default function EstatePropertyForm({ properties, onChange, hasFamilyHome
 }
 
 function EstateLandFields({ prop, index, updateProperty, showImprovement, showCWT }) {
-  const areaZonal = (prop.area || 0) * (prop.zonalValue || 0);
-  const fmvHigher = Math.max(prop.fairMarketValue || 0, areaZonal);
-  const taxBase = fmvHigher + (showImprovement && prop.hasImprovement ? (prop.improvementAmount || 0) : 0);
+  const fmv = parseFloat(prop.fairMarketValue) || 0;
+  const area = parseFloat(prop.area) || 0;
+  const zonal = parseFloat(prop.zonalValue) || 0;
+  const imp = (showImprovement && prop.hasImprovement) ? (parseFloat(prop.improvementAmount) || 0) : 0;
+  const areaZonal = area * zonal;
+  const fmvHigher = Math.max(fmv, areaZonal);
+  const taxBase = fmvHigher + imp;
 
   const cwtInfo = showCWT ? getCWTRate(taxBase) : null;
 
@@ -195,16 +199,16 @@ function EstateLandFields({ prop, index, updateProperty, showImprovement, showCW
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Fair Market Value</Label>
-          <Input type="number" placeholder="0.00" value={prop.fairMarketValue || ''} onChange={(e) => updateProperty(index, 'fairMarketValue', parseFloat(e.target.value) || 0)} />
+          <Label className="text-xs text-muted-foreground">Fair Market Value (₱)</Label>
+          <Input type="number" placeholder="0.00" value={prop.fairMarketValue ?? ''} onChange={(e) => updateProperty(index, 'fairMarketValue', parseFloat(e.target.value) || 0)} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Area (sq.m.)</Label>
-          <Input type="number" placeholder="0.00" value={prop.area || ''} onChange={(e) => updateProperty(index, 'area', parseFloat(e.target.value) || 0)} />
+          <Input type="number" placeholder="0.00" value={prop.area ?? ''} onChange={(e) => updateProperty(index, 'area', parseFloat(e.target.value) || 0)} />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Zonal Value (/sq.m.)</Label>
-          <Input type="number" placeholder="0.00" value={prop.zonalValue || ''} onChange={(e) => updateProperty(index, 'zonalValue', parseFloat(e.target.value) || 0)} />
+          <Label className="text-xs text-muted-foreground">Zonal Value (₱/sq.m.)</Label>
+          <Input type="number" placeholder="0.00" value={prop.zonalValue ?? ''} onChange={(e) => updateProperty(index, 'zonalValue', parseFloat(e.target.value) || 0)} />
         </div>
       </div>
 
@@ -214,14 +218,18 @@ function EstateLandFields({ prop, index, updateProperty, showImprovement, showCW
             <Checkbox
               id={`improvement-${index}`}
               checked={prop.hasImprovement || false}
-              onCheckedChange={(v) => updateProperty(index, 'hasImprovement', v)}
+              onCheckedChange={(v) => {
+                const isChecked = Boolean(v);
+                updateProperty(index, 'hasImprovement', isChecked);
+                if (!isChecked) updateProperty(index, 'improvementAmount', 0);
+              }}
             />
             <Label htmlFor={`improvement-${index}`} className="text-xs cursor-pointer">🏗️ Has improvements / structure on property</Label>
           </div>
           {prop.hasImprovement && (
             <div className="pl-6 space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Value of Improvements (added to Gross Estate)</Label>
-              <Input type="number" placeholder="0.00" value={prop.improvementAmount || ''} onChange={(e) => updateProperty(index, 'improvementAmount', parseFloat(e.target.value) || 0)} />
+              <Label className="text-xs text-muted-foreground font-semibold">Value of Improvements (₱) — added to Gross Estate & Family Home</Label>
+              <Input type="number" placeholder="0.00" value={prop.improvementAmount ?? ''} onChange={(e) => updateProperty(index, 'improvementAmount', parseFloat(e.target.value) || 0)} />
             </div>
           )}
         </div>
