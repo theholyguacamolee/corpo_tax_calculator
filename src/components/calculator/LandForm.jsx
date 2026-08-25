@@ -265,10 +265,7 @@ export default function LandForm({ data, onChange, mode = 'sale', showClassifica
                   <span className="text-secondary">{formatCurrency(taxBase)}</span>
                 </div>
                 <div className="text-muted-foreground text-[11px] leading-relaxed">
-                  Formula: Highest of [
-                  {mode === 'sale' ? `SP: ${formatCurrency(sellingPrice)}, ` : ''}
-                  FMV: ${formatCurrency(fmv)}, Area×Zonal: ${formatCurrency(areaZonal)}
-                  ]
+                  Formula: Highest of [{mode === 'sale' ? `SP: ${formatCurrency(sellingPrice)}, ` : ''}FMV: {formatCurrency(fmv)}, Area×Zonal: {formatCurrency(areaZonal)}]
                   {hasImprovement && improvementAmount > 0 ? ` + Improvement: ${formatCurrency(improvementAmount)}` : ''}
                 </div>
               </div>
